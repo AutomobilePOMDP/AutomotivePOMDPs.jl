@@ -33,6 +33,8 @@ Vec = "44eeaf0b-fee4-471f-9310-ed6585cb3142"
 [compat]
 AutomotiveDrivingModels = "0.7.12"
 AutoViz = "0.7"
+AutomotiveSensors = "0.1.0"
+POMDPModelTools = "0.2.0"
 
 [extras]
 POMDPTesting = "92e6a534-49c2-5324-9027-86e3c861ab81"
