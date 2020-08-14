@@ -4,7 +4,7 @@
 """
 Sensor model with gaussian noise in position and velocity measurement
 """
-type SimpleSensor
+struct SimpleSensor
     pos_noise::Float64
     vel_noise::Float64
 end

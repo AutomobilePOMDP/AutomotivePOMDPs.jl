@@ -1,5 +1,5 @@
 
-type MixedUpdater <: Updater
+struct MixedUpdater <: Updater
     problem::SingleOCPOMDP
     dt::Float64
     states::Vector{SingleOCState}

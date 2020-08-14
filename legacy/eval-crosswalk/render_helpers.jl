@@ -231,7 +231,7 @@ function AutoViz.render!(rendermodel::RenderModel, overlay::QMDPOverlay, scene::
         for (i,s) in enumerate(overlay.model.b[id].it)
             prob = overlay.model.b[id].p[i]
             if prob > 1e-3
-                color=RGBA(75./255, 66./255, 244./255, overlay.model.b[id].p[i])
+                color=RGBA(75/255, 66/255, 244/255, overlay.model.b[id].p[i])
 
 #             overlay.model.b[id].p[i]
 #             println(overlay.model.b[id].p[i])
@@ -260,7 +260,7 @@ function AutoViz.render!(rendermodel::RenderModel, overlay::QMDPOverlay, scene::
     θ_other_lab = 0.
     add_instruction!(rendermodel, render_vehicle, (x_other_lab, y_other_lab, θ_other_lab,
                                                   PEDESTRIAN_DEF.length, PEDESTRIAN_DEF.width, COLOR_CAR_OTHER))
-    text_y += 2.*text_y_jump
+    text_y += 2*text_y_jump
     add_instruction!(rendermodel, render_text, (@sprintf("Pedestrian"), 120, text_y, font_size, overlay.color), incameraframe=false)
     text_y += text_y_jump
     add_instruction!(rendermodel, render_text, (@sprintf("ground truth"), 120, text_y, font_size, overlay.color), incameraframe=false)
@@ -268,8 +268,8 @@ function AutoViz.render!(rendermodel::RenderModel, overlay::QMDPOverlay, scene::
     y_belief_lab = -11
     θ_belief_lab = 0.
     add_instruction!(rendermodel, render_vehicle, (x_belief_lab, y_belief_lab, θ_belief_lab,
-                                                 PEDESTRIAN_DEF.length, PEDESTRIAN_DEF.width, RGB(75./255, 66./255, 244./255)))
-    text_y += 2.*text_y_jump
+                                                 PEDESTRIAN_DEF.length, PEDESTRIAN_DEF.width, RGB(75/255, 66/255, 244/255)))
+    text_y += 2*text_y_jump
     add_instruction!(rendermodel, render_text, (@sprintf("Belief"), 120, text_y, font_size, overlay.color), incameraframe=false)
 
     add_instruction!(rendermodel, render_text, (@sprintf("Absent state"), 300, 400, font_size, overlay.color), incameraframe=false)
