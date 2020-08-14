@@ -31,8 +31,8 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Vec = "44eeaf0b-fee4-471f-9310-ed6585cb3142"
 
 [compat]
-AutomotiveDrivingModels = "0.7.12"
 AutoViz = "0.7"
+AutomotiveDrivingModels = "0.7.12"
 AutomotiveSensors = "0.1.0"
 POMDPModelTools = "0.2.0"
 
