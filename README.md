@@ -11,14 +11,18 @@ This repository consists of different driving scenarios formulated as POMDPs. It
 ## Installation
 
 To install this package, first add the SISL registry and the JuliaPOMDP registry such that all dependencies are automatically installed. 
-You can run the following in the julia REPL:
+You can run the following in the bash:
+```bash
+git clone https://github.com/AutomobilePOMDP/AutomotivePOMDPs.jl
+cd AutomotivePOMDPs.jl
+julia
+```
 ```julia 
-using Pkg
-Pkg.add("POMDPs")
+pkg> add POMDPs
 using POMDPs
 POMDPs.add_registry()
-Pkg.Registry.add(RegistrySpec(url="https://github.com/sisl/Registry"))
-Pkg.add("AutomotivePOMDPs")
+pkg> registry add "https://github.com/sisl/Registry"
+pkg> instantiate
 ```
 
 ## Code to run
