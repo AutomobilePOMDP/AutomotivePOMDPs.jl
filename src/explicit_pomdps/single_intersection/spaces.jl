@@ -114,10 +114,7 @@ function POMDPs.obsindex(pomdp::SingleOIPOMDP, o::SingleOIObs)
     return stateindex(pomdp, o)
 end
 
-function POMDPs.n_observations(pomdp::SingleOIPOMDP)
-    return n_states(pomdp)
-end
-
+n_observations(pomdp::SingleOIPOMDP) = n_states(pomdp)
 
 #### HELPERS ####
 

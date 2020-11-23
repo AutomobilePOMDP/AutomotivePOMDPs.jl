@@ -27,10 +27,10 @@ end
 
 ### TRANSITION MODEL ##############################################################################
 
-function POMDPs.gen(::DDNNode{:sp}, pomdp::OCPOMDP, s::OCState, a::OCAction, rng::AbstractRNG)
+function POMDPs.transition(pomdp::OCPOMDP, s::OCState, a::OCAction, rng::AbstractRNG)
     actions = Array{Any}(undef, length(s))
     pomdp.models[1].a = a
-    sp = deepcopy(s) #XXX bad
+    sp = deepcopy(s)
     # max_id = 0
     # for veh in sp
     #     if veh.id > max_id
@@ -38,7 +38,7 @@ function POMDPs.gen(::DDNNode{:sp}, pomdp::OCPOMDP, s::OCState, a::OCAction, rng
     #     end
     # end
     # if rand(rng) < pomdp.p_birth && max_id < pomdp.max_peds+1 && !pomdp.no_ped
-    # if rand(rng) < 0.01 && max_id < pomdp.max_peds+1 && !pomdp.no_ped    
+    # if rand(rng) < 0.01 && max_id < pomdp.max_peds+1 && !pomdp.no_ped
     #     # println("Spawning new pedestrians")
     #     new_ped = initial_pedestrian(pomdp, sp, rng)
     #     pomdp.models[new_ped.id] = ConstantPedestrian(dt = pomdp.ΔT)#TODO parameterized
@@ -175,7 +175,7 @@ end
 # end
 
 # uncomment for vector representation
-function POMDPs.gen(::DDNNode{:o}, pomdp::OCPOMDP, s::OCState, a::OCAction, sp::OCState, rng::AbstractRNG)
+function POMDPs.observation(pomdp::OCPOMDP, s::OCState, a::OCAction, sp::OCState, rng::AbstractRNG)
     pos_noise = pomdp.pos_obs_noise
     vel_noise = pomdp.vel_obs_noise
     o = zeros(2 + 2*pomdp.max_peds)

@@ -31,8 +31,51 @@ end
 
 ### TRANSITION MODEL ##############################################################################
 
-function POMDPs.gen(::DDNNode{:sp}, pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction, rng::AbstractRNG)
-    # clean dict 
+function POMDPs.transition(pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction)
+    ImplicitDistribution(s, a) do s, a, rng
+        # clean dict
+        ids = [veh.id for veh in s]
+        key_ = deepcopy(keys(pomdp.models))
+        for k in key_
+            if !(k ∈ ids) && k!=1
+                delete!(pomdp.models, k)
+            end
+        end
+        actions = Array{Any}(undef, length(s))
+        pomdp.models[1].a = a
+        ego_ind = findfirst(EGO_ID, s)
+        is_ego_here =  ego_ind == nothing ? 0 : 1
+        sp = deepcopy(s) #XXX bad
+        if rand(rng) < pomdp.car_birth && n_cars(s) < pomdp.max_cars + is_ego_here
+            new_car = initial_car(pomdp, sp, rng)
+            if can_push(pomdp.env, sp, new_car)
+                lane = get_lane(pomdp.env.roadway, new_car)
+                route = find_route(pomdp.env, random_route(rng, pomdp.env.roadway, lane))
+                pomdp.models[new_car.id] = pomdp.car_models[SVector(route[1], route[end])]
+                reset_hidden_state!(pomdp.models[new_car.id])
+                push!(sp, new_car)
+            end
+        end
+        if rand(rng) < pomdp.ped_birth && n_pedestrians(s) < pomdp.max_peds
+            # println("Spawning new pedestrians")
+            new_ped = initial_pedestrian(pomdp, sp, rng)
+            # pomdp.models[new_ped.id] = ConstantPedestrian(dt = pomdp.ΔT)#TODO parameterized
+            new_ped_cw = get_lane(pomdp.env.roadway, new_ped)
+            new_ped_conflict_lanes = get_conflict_lanes(new_ped_cw, pomdp.env.roadway)
+            pomdp.models[new_ped.id] = IntelligentPedestrian(dt = pomdp.ΔT, crosswalk=new_ped_cw, conflict_lanes=new_ped_conflict_lanes)
+            reset_hidden_state!(pomdp.models[new_ped.id])
+            push!(sp, new_ped)
+        end
+        actions = Array{Any}(undef, length(sp))
+        get_actions!(actions, sp, pomdp.env.roadway, pomdp.models)
+        tick!(sp, pomdp.env.roadway, actions, pomdp.ΔT)
+        clean_scene!(pomdp.env, sp)
+        return sp
+    end
+end
+
+function POMDPs.transition(pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction, rng::AbstractRNG)
+    # clean dict
     ids = [veh.id for veh in s]
     key_ = deepcopy(keys(pomdp.models))
     for k in key_
@@ -89,7 +132,7 @@ end
 function POMDPs.initialstate(pomdp::UrbanPOMDP, rng::AbstractRNG, burn_in::Int64=1)
     scene = initial_scene(pomdp, rng, true)
     for t = 1:burn_in
-        scene = gen(DDNOut(:sp), pomdp, scene, UrbanAction(0.), rng)
+        scene = transition(pomdp, scene, UrbanAction(0.), rng)
     end
     clean_scene!(pomdp.env, scene)
     # push! ego after traffic is steady
@@ -215,19 +258,19 @@ end
 
 ### Observations ##################################################################################
 
-function POMDPs.gen(::DDNNode{:o}, pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction, sp::UrbanState, rng::AbstractRNG)
+function POMDPs.observation(pomdp::UrbanPOMDP, sp::UrbanState)
     if pomdp.lidar
-        return measure_lidar(pomdp, s, a, sp, rng)
+        return measure_lidar(pomdp, sp)
     else
-        return measure_gaussian(pomdp, s, a, sp, rng)
+        return measure_gaussian(pomdp, sp)
     end
 end
 
-function measure_gaussian(pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction, sp::UrbanState, rng::AbstractRNG)
+function measure_gaussian(pomdp::UrbanPOMDP, sp::UrbanState)
     ego = get_ego(sp)
     obs = measure(pomdp.sensor, ego, sp, pomdp.env.roadway, pomdp.env.obstacles)
     o = obs_to_array(pomdp, ego, obs)
-    return o 
+    return o
 end
 
 function obs_to_array(pomdp::UrbanPOMDP, ego_veh::Vehicle, obs::Vector{Vehicle})
@@ -256,12 +299,12 @@ function obs_to_array(pomdp::UrbanPOMDP, ego_veh::Vehicle, obs::Vector{Vehicle})
             o[n_features*veh.id - 3] = veh.state.posG.x - ego.posG.x
             o[n_features*veh.id - 2] = veh.state.posG.y - ego.posG.y
             o[n_features*veh.id - 1] = veh.state.posG.θ
-            o[n_features*veh.id] = veh.state.v 
+            o[n_features*veh.id] = veh.state.v
         end
         if veh.def.class == AgentClass.PEDESTRIAN
             o[n_features*(veh.id - 100 + pomdp.max_cars + 1) - 3] = veh.state.posG.x - ego.posG.x
             o[n_features*(veh.id - 100 + pomdp.max_cars + 1) - 2] = veh.state.posG.y - ego.posG.y
-            o[n_features*(veh.id - 100 + pomdp.max_cars + 1) - 1] = veh.state.posG.θ 
+            o[n_features*(veh.id - 100 + pomdp.max_cars + 1) - 1] = veh.state.posG.θ
             o[n_features*(veh.id - 100 + pomdp.max_cars + 1)] = veh.state.v
         end
     end
@@ -288,7 +331,7 @@ function n_dims(pomdp::UrbanPOMDP)
 end
 
 function POMDPs.initialobs(pomdp::UrbanPOMDP, s::UrbanState, rng::AbstractRNG)
-    return gen(DDNNode(:o), pomdp, s, UrbanAction(0.), s, rng::AbstractRNG)
+    return observation(pomdp, s, UrbanAction(0.), s, rng::AbstractRNG)
 end
 
 function rescale!(o::UrbanObs, pomdp::UrbanPOMDP)
@@ -350,7 +393,7 @@ function to_global_coordinates!(o::UrbanObs, pomdp::UrbanPOMDP)
         o[n_features*i - 2] += ego[2]
     end
     for i=pomdp.max_cars + pomdp.max_peds + 2:pomdp.max_cars + pomdp.max_peds + 1 + n_obstacles
-        o[n_features*i - 1] += ego[1] 
+        o[n_features*i - 1] += ego[1]
         o[n_features*i]+= ego[2]
     end
     return o
@@ -367,7 +410,7 @@ function get_normalized_absent_state(pomdp::UrbanPOMDP, ego::Vector{Float64})
                     0. ]
 end
 
-function measure_lidar(pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction, sp::UrbanState, rng::AbstractRNG)
+function measure_lidar(pomdp::UrbanPOMDP, sp::UrbanState)
     observe!(pomdp.sensor, sp, pomdp.env.roadway, EGO_ID)
     return vcat(pomdp.sensor.ranges/pomdp.sensor.max_range, pomdp.sensor.range_rates/pomdp.env.params.speed_limit)
 end
@@ -581,7 +624,7 @@ function split_o(obs::UrbanObs, pomdp::UrbanPOMDP, normalized=true)
     ego = obs[1:n_features]
     if normalized
         absent = normalized_off_the_grid_pos(pomdp, ego[1], ego[2])
-    else 
+    else
         pos_off = get_off_the_grid(pomdp)
         absent= [pos_off.posG.x, pos_off.posG.y, pos_off.posG.θ, pos_off.v]
     end

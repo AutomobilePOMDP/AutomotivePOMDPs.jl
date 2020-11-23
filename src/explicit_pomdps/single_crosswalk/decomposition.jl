@@ -192,10 +192,10 @@ end
 POMDPs.gen(::DDNNode{:o}, pomdp::SingleOCPOMDP, states::Dict{Int64, SingleOCState}, a::SingleOCAction, statesp::Dict{Int64, SingleOCState}, rng::AbstractRNG)
 generate an observation from a vector of states
 """
-function POMDPs.gen(::DDNNode{:o}, pomdp::SingleOCPOMDP, states::Dict{Int64, SingleOCState}, a::SingleOCAction, statesp::Dict{Int64, SingleOCState}, rng::AbstractRNG)
+function POMDPs.observation(pomdp::SingleOCPOMDP, states::Dict{Int64, SingleOCState}, a::SingleOCAction, statesp::Dict{Int64, SingleOCState}, rng::AbstractRNG)
     o = Dict{Int64, SingleOCObs}()
     for id in keys(statesp)
-        o[id] = gen(DDNNode(:o), pomdp, states[id], a, statesp[id], rng)
+        o[id] = observation(pomdp, states[id], a, statesp[id], rng)
     end
     return o
 end
