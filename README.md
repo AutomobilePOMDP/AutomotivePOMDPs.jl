@@ -8,6 +8,8 @@ contact: Maxime Bouton, [boutonm@stanford.edu](boutonm@stanford.edu)
 
 This repository consists of different driving scenarios formulated as POMDPs. It provides a generative model for computing policies. A few of them have explicit transition and observation models.
 
+The new version compat with POMDPs v0.9. But only the UrbanPOMDP environment has completely completed the migration from POMDPs v0.8 to POMDPs v0.9.
+
 ## Installation
 
 To install this package, first add the SISL registry and the JuliaPOMDP registry such that all dependencies are automatically installed. 
