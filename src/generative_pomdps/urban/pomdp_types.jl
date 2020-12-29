@@ -60,7 +60,7 @@ function POMDPs.discount(pomdp::UrbanPOMDP)
     return pomdp.γ
 end
 
-POMDPs.actions(pomdp::UrbanPOMDP) = [UrbanAction(-4.0), UrbanAction(-2.0), UrbanAction(0.0), UrbanAction(2.0)]
+POMDPs.actions(pomdp::UrbanPOMDP) = [UrbanAction(-2.0), UrbanAction(0.0), UrbanAction(2.0), UrbanAction(4.0)]
 
 function POMDPs.actionindex(pomdp::UrbanPOMDP, action::UrbanAction)
     if action.acc == -4.0
@@ -86,8 +86,8 @@ function get_car_models(env::UrbanEnv, get_model::Function)
 
     r3 = SVector(LaneTag(3,1), LaneTag(4,1))
     d[r3] = get_model(env, r3)
-    
-    r4 = SVector(LaneTag(3,1), LaneTag(5,1)) 
+
+    r4 = SVector(LaneTag(3,1), LaneTag(5,1))
     d[r4] = get_model(env, r4)
     return d
 end

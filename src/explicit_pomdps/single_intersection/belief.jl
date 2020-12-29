@@ -41,8 +41,8 @@ function POMDPs.initialstate(pomdp::SingleOIPOMDP)
      push!(states, SingleOIState(false, ego, get_off_the_grid(pomdp)))
      n_off_grid = length(states) - n_in_grid
      probs = ones(length(states))
-     probs[1:n_in_grid] = pomdp.p_birth/n_in_grid
-     probs[n_in_grid + 1:end] = (1.0 - pomdp.p_birth)/n_off_grid
+     probs[1:n_in_grid] .= pomdp.p_birth/n_in_grid
+     probs[n_in_grid + 1:end] .= (1.0 - pomdp.p_birth)/n_off_grid
      @assert n_off_grid == 1
      @assert sum(probs) ≈ 1.
      # normalize!(probs, 1)

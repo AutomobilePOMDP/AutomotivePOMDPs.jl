@@ -22,7 +22,7 @@ Container type for the environment parameters
     ped_max_y::Float64 = crosswalk_length/2.0
 
     # obstacles
-    obstacles_visible::Bool = false
+    obstacles_visible::Bool = true
     obstacles::Vector{ConvexPolygon} = [ConvexPolygon([VecE2(15, -1.5), VecE2(15, -4.5), VecE2(21.5, -4.5), VecE2(21.5, -1.5)], 4)]
 end
 

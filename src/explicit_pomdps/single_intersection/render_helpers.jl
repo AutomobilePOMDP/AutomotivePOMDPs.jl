@@ -4,7 +4,7 @@ function AutoViz.render!(rendermodel::RenderModel, env::SimpleInterEnv)
 
     obs = env.obstacles[1]
     for obs in env.obstacles
-        pts = Array{Float64}(2, obs.npts)
+        pts = Array{Float64}(undef, 2, obs.npts)
         for (i, pt) in enumerate(obs.pts)
             pts[1,i] = pt.x
             pts[2,i] = pt.y

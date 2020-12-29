@@ -81,7 +81,7 @@ function car_transition(pomdp::SingleOIPOMDP, car::VehicleState, dt::Float64,
             end
         end
         probs = ones(length(states) + 1)
-        probs[1:end - 1] = p_birth/length(states)
+        probs[1:end - 1] .= p_birth/length(states)
         # add the off the grid state
         push!(states, get_off_the_grid(pomdp))
         probs[end] = 1.0 - p_birth
@@ -106,13 +106,13 @@ function car_transition(pomdp::SingleOIPOMDP, car::VehicleState, dt::Float64,
                 push!(probs, weight[i])
             else
                 state_ind = findall(x->x==state, states)
-                probs[state_ind] += weight[i]
+                probs[state_ind] .+= weight[i]
             end
         end
     end
      # add roughening
     normalize!(probs, 1)
-    probs += maximum(probs)
+    probs .+= maximum(probs)
     normalize!(probs)
     return states, probs
 end

@@ -12,7 +12,7 @@ function POMDPs.observation(pomdp::SingleOIPOMDP, sp::SingleOIState)
     ego = sp.ego
     car = sp.car
     lane = pomdp.env.roadway[car.posF.roadind.tag]
-    neighbors = Vector{VehicleState}(9)
+    neighbors = Vector{VehicleState}(undef, 9)
     neighbors[1] = car_state(pomdp, lane, car.posF.s - pomdp.pos_res, car.v)
     neighbors[2] = car_state(pomdp, lane, car.posF.s + pomdp.pos_res, car.v)
     neighbors[3] = car_state(pomdp, lane, car.posF.s - pomdp.pos_res, car.v - pomdp.vel_res)

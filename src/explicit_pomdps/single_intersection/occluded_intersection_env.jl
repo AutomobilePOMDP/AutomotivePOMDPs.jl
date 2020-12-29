@@ -55,6 +55,7 @@ function build_t_shape(params::SimpleInterParams)
     r = params.turn_radius # turn radius
     A = VecSE2(0,params.lane_width,-π)
     B = VecSE2(0,0,0)
+    B = convert(VecSE2{Float64}, B)
     C = VecSE2(r,-r,-π/2)
     D = VecSE2(r+params.lane_width,-r,π/2)
     E = VecSE2(2r+params.lane_width, 0, 0)
@@ -69,7 +70,7 @@ function build_t_shape(params::SimpleInterParams)
     lane = Lane(LaneTag(length(roadway.segments)+1,1), curve)
     lane.width = params.lane_width
     lane.speed_limit = SPEED_LIMIT
-    push!(roadway.segments, RoadSegment(lane.tag.segment, [Lane(lane)]))
+    push!(roadway.segments, RoadSegment(lane.tag.segment, [lane]))
     LANE_ID_MAP["right_from_left"] = roadway.segments[1].lanes[1]
 
     # Append straight right
@@ -80,7 +81,7 @@ function build_t_shape(params::SimpleInterParams)
     lane = Lane(LaneTag(length(roadway.segments)+1,1), curve)
     lane.width = params.lane_width
     lane.speed_limit = SPEED_LIMIT
-    push!(roadway.segments, RoadSegment(lane.tag.segment, [Lane(lane)]))
+    push!(roadway.segments, RoadSegment(lane.tag.segment, [lane]))
     LANE_ID_MAP["straight_from_right"] = roadway.segments[2].lanes[1]
 
     # Append left turn coming from the right
@@ -90,7 +91,7 @@ function build_t_shape(params::SimpleInterParams)
     lane = Lane(LaneTag(length(roadway.segments)+1,1), curve)
     lane.width = params.lane_width
     lane.speed_limit = SPEED_LIMIT
-    push!(roadway.segments, RoadSegment(lane.tag.segment, [Lane(lane)]))
+    push!(roadway.segments, RoadSegment(lane.tag.segment, [lane]))
     LANE_ID_MAP["left_from_right"] = roadway.segments[3].lanes[1]
 
     # Append straight left
@@ -100,7 +101,7 @@ function build_t_shape(params::SimpleInterParams)
     append_to_curve!(curve, gen_straight_curve(convert(VecE2, E),
                                                convert(VecE2, E+VecE2(params.hor_roadway_length/2,0)), 2))
     lane = Lane(LaneTag(length(roadway.segments)+1,1), curve, width = params.lane_width,speed_limit = SPEED_LIMIT)
-    push!(roadway.segments, RoadSegment(lane.tag.segment, [Lane(lane)]))
+    push!(roadway.segments, RoadSegment(lane.tag.segment, [lane]))
     LANE_ID_MAP["straight_from_left"] = roadway.segments[4].lanes[1]
 
     # Append right turn coming from below
@@ -110,7 +111,7 @@ function build_t_shape(params::SimpleInterParams)
     lane = Lane(LaneTag(length(roadway.segments)+1,1), curve)
     lane.width = params.lane_width
     lane.speed_limit = SPEED_LIMIT
-    push!(roadway.segments, RoadSegment(lane.tag.segment, [Lane(lane)]))
+    push!(roadway.segments, RoadSegment(lane.tag.segment, [lane]))
     LANE_ID_MAP["ego_right"] = roadway.segments[5].lanes[1]
 
     # Append left turn coming from below
@@ -120,7 +121,7 @@ function build_t_shape(params::SimpleInterParams)
     lane = Lane(LaneTag(length(roadway.segments)+1,1), curve)
     lane.width = params.lane_width
     lane.speed_limit = SPEED_LIMIT
-    push!(roadway.segments, RoadSegment(lane.tag.segment, [Lane(lane)]))
+    push!(roadway.segments, RoadSegment(lane.tag.segment, [lane]))
     LANE_ID_MAP["ego_left"] = roadway.segments[6].lanes[1]
     return roadway, LANE_ID_MAP
 end
@@ -143,16 +144,16 @@ function build_obstacles(params::SimpleInterParams)
 
     #Left Building
     left_building = ConvexPolygon(4)
-    top_right = VecSE2(3*params.lane_width/4, -params.lane_width/2 - 1.5, 0.)
-    left_building.pts = [top_right, top_right + VecSE2(-WIDTH, 0., 0.),
-                    top_right + VecSE2(-WIDTH, -HEIGHT, 0.), top_right + VecSE2(0., -HEIGHT, 0.)]
+    top_right = VecE2(3*params.lane_width/4, -params.lane_width/2 - 1.5)
+    left_building.pts = [top_right, top_right + VecE2(-WIDTH, 0.),
+                    top_right + VecE2(-WIDTH, -HEIGHT), top_right + VecE2(0., -HEIGHT)]
     left_building.npts = 4; # a rectangle
 
     #Right Building
     right_building = ConvexPolygon(4)
-    top_right = top_right + VecSE2(top_right.x + 2*params.lane_width + WIDTH, 0., 0.)
-    right_building.pts = [top_right, top_right + VecSE2(-WIDTH, 0., 0.),
-                    top_right + VecSE2(-WIDTH, -HEIGHT, 0.), top_right + VecSE2(0., -HEIGHT, 0.)]
+    top_right = top_right + VecE2(top_right.x + 2*params.lane_width + WIDTH, 0.)
+    right_building.pts = [top_right, top_right + VecE2(-WIDTH, 0.),
+                    top_right + VecE2(-WIDTH, -HEIGHT), top_right + VecE2(0., -HEIGHT)]
     right_building.npts = 4; # a rectangle
     return [left_building, right_building]
 end
