@@ -189,15 +189,18 @@ function generate_states(pomdp::SingleOCPOMDP, states::Dict{Int64, SingleOCState
 end
 
 """
-POMDPs.gen(::DDNNode{:o}, pomdp::SingleOCPOMDP, states::Dict{Int64, SingleOCState}, a::SingleOCAction, statesp::Dict{Int64, SingleOCState}, rng::AbstractRNG)
+POMDPs.observation(pomdp::SingleOCPOMDP, states::Dict{Int64, SingleOCState}, a::SingleOCAction, statesp::Dict{Int64, SingleOCState})
 generate an observation from a vector of states
 """
-function POMDPs.observation(pomdp::SingleOCPOMDP, states::Dict{Int64, SingleOCState}, a::SingleOCAction, statesp::Dict{Int64, SingleOCState}, rng::AbstractRNG)
-    o = Dict{Int64, SingleOCObs}()
-    for id in keys(statesp)
-        o[id] = observation(pomdp, states[id], a, statesp[id], rng)
+function POMDPs.observation(pomdp::SingleOCPOMDP, states::Dict{Int64, SingleOCState}, a::SingleOCAction, statesp::Dict{Int64, SingleOCState})
+    ImplicitDistribution(states, a, statesp) do states, a, statesp, rng
+        o = Dict{Int64, SingleOCObs}()
+        obs = observation(pomdp, states[id], a, statesp[id])
+        for id in keys(statesp)
+            o[id] = rand(rng, obs)
+        end
+        return o
     end
-    return o
 end
 
 
@@ -326,7 +329,7 @@ Initialize a belief considering two pedestrians
 """
 function initialize_two_beliefs(pomdp::SingleOCPOMDP)
     b = Dict{Int64, SparseCat}()
-    b[2] = initialstate_distribution(pomdp)
-    b[3] = initialstate_distribution(pomdp)
+    b[2] = initialstate(pomdp)
+    b[3] = initialstate(pomdp)
     return b
 end

@@ -49,14 +49,14 @@ policy = QMDPEval(env = env, pomdp = pomdp, policy = policy, sim_dt = config.sim
 include("eval-env/continuous_observations.jl")
 include("eval-env/state_estimation.jl")
 
-d0 = initialstate_distribution(pomdp)
+d0 = initialstate(pomdp)
 s0 = rand(config.rng, d0)
 ego_initialstate = s0.ego
 ego = Vehicle(ego_initialstate, VehicleDef(), 1)
 b0 = Dict{Int64, OCDistribution}()
-b0[2] = initialstate_distribution(pomdp)
-# b0[3] = initialstate_distribution(pomdp)
-# b0[4] = initialstate_distribution(pomdp)
+b0[2] = initialstate(pomdp)
+# b0[3] = initialstate(pomdp)
+# b0[4] = initialstate(pomdp)
 
 models = Dict{Int, DriverModel}()
 ego = Vehicle(ego_initialstate, VehicleDef(), 1)

@@ -38,7 +38,7 @@ sarsop_policy = load_policy(pomdp, "crosswalk_long.policy");
 
 
 
-# b0 = initialstate_distribution(pomdp)
+# b0 = initialstate(pomdp)
 
 # a = action(policy, b0)
 # actionvalues(policy, b0)
@@ -49,7 +49,7 @@ rng = MersenneTwister(1);
 hr = HistoryRecorder(max_steps=40, rng=rng);
 s0 = initialstate(pomdp, rng);
 up = DiscreteUpdater(pomdp);
-b0 = initialstate_distribution(pomdp);
+b0 = initialstate(pomdp);
 hist = simulate(hr, pomdp, sarsop_policy, up, b0, s0);
 makegif(pomdp, hist, filename=joinpath("./", "crosswalk.gif"), spec="s,a", fps=2);
 

@@ -27,10 +27,10 @@ end
 
 ### TRANSITION MODEL ##############################################################################
 
-function POMDPs.transition(pomdp::OCPOMDP, s::OCState, a::OCAction, rng::AbstractRNG)
+function POMDPs.transition(pomdp::OCPOMDP, s::OCState, a::OCAction)
     actions = Array{Any}(undef, length(s))
     pomdp.models[1].a = a
-    sp = deepcopy(s)
+    sp = deepcopy(s) #XXX bad
     # max_id = 0
     # for veh in sp
     #     if veh.id > max_id
@@ -38,7 +38,7 @@ function POMDPs.transition(pomdp::OCPOMDP, s::OCState, a::OCAction, rng::Abstrac
     #     end
     # end
     # if rand(rng) < pomdp.p_birth && max_id < pomdp.max_peds+1 && !pomdp.no_ped
-    # if rand(rng) < 0.01 && max_id < pomdp.max_peds+1 && !pomdp.no_ped
+    # if rand(rng) < 0.01 && max_id < pomdp.max_peds+1 && !pomdp.no_ped    
     #     # println("Spawning new pedestrians")
     #     new_ped = initial_pedestrian(pomdp, sp, rng)
     #     pomdp.models[new_ped.id] = ConstantPedestrian(dt = pomdp.ΔT)#TODO parameterized
@@ -48,7 +48,7 @@ function POMDPs.transition(pomdp::OCPOMDP, s::OCState, a::OCAction, rng::Abstrac
     get_actions!(actions, sp, pomdp.env.roadway, pomdp.models)
     tick!(sp, pomdp.env.roadway, actions, pomdp.ΔT)
     clean_scene!(pomdp.env, sp)
-    return sp
+    return Deterministic(sp)
 end
 
 # function clean_scene!(env::CrosswalkEnv, scene::Scene)
@@ -75,21 +75,23 @@ end
 
 ### INITIAL STATES ################################################################################
 
-function POMDPs.initialstate(pomdp::OCPOMDP, rng::AbstractRNG)
-    pomdp.no_ped = rand(rng) < pomdp.no_ped_prob
-    scene = Scene()
-    if !pomdp.no_ped
-        for i=1:pomdp.max_peds
-            if rand(rng) < pomdp.p_birth # pedestrian appear
-                new_ped = initial_pedestrian(pomdp, scene, rng, true)
-                pomdp.models[new_ped.id] = ConstantPedestrian(dt = pomdp.ΔT)
-                push!(scene, new_ped)
+function POMDPs.initialstate(pomdp::OCPOMDP)
+    ImplicitDistribution() do rng
+        pomdp.no_ped = rand(rng) < pomdp.no_ped_prob
+        scene = Scene()
+        if !pomdp.no_ped
+            for i=1:pomdp.max_peds
+                if rand(rng) < pomdp.p_birth # pedestrian appear
+                    new_ped = initial_pedestrian(pomdp, scene, rng, true)
+                    pomdp.models[new_ped.id] = ConstantPedestrian(dt = pomdp.ΔT)
+                    push!(scene, new_ped)
+                end
             end
         end
+        ego = initial_ego(pomdp, rng)
+        push!(scene, ego)
+        return scene
     end
-    ego = initial_ego(pomdp, rng)
-    push!(scene, ego)
-    return scene
 end
 
 """
@@ -147,10 +149,6 @@ function initial_pedestrian(pomdp::OCPOMDP, scene::Scene, rng::AbstractRNG, firs
 end
 
 
-function POMDPs.initialstate_distribution(pomdp::OCPOMDP)
-    return GenerativeDist(pomdp)
-end
-
 
 
 ### Observations ##################################################################################
@@ -175,41 +173,43 @@ end
 # end
 
 # uncomment for vector representation
-function POMDPs.observation(pomdp::OCPOMDP, s::OCState, a::OCAction, sp::OCState, rng::AbstractRNG)
-    pos_noise = pomdp.pos_obs_noise
-    vel_noise = pomdp.vel_obs_noise
-    o = zeros(2 + 2*pomdp.max_peds)
-    ego = sp[findfirst(EGO_ID, sp)].state
-    o[1] = ego.posG.x
-    o[2] = ego.v
-    ped_off = get_off_the_grid(pomdp)
-    for i=2:pomdp.max_peds+1
-        o[2*i - 1] = ped_off.posG.y
-        o[2*i] = 0.
-    end
-    for veh in sp
-        if veh.id == EGO_ID
-            continue
+function POMDPs.observation(pomdp::OCPOMDP, s::OCState, a::OCAction, sp::OCState)
+    ImplicitDistribution(s, a, sp) do s, a, sp, rng
+        pos_noise = pomdp.pos_obs_noise
+        vel_noise = pomdp.vel_obs_noise
+        o = zeros(2 + 2*pomdp.max_peds)
+        ego = sp[findfirst(EGO_ID, sp)].state
+        o[1] = ego.posG.x
+        o[2] = ego.v
+        ped_off = get_off_the_grid(pomdp)
+        for i=2:pomdp.max_peds+1
+            o[2*i - 1] = ped_off.posG.y
+            o[2*i] = 0.
         end
-        @assert veh.id <= pomdp.max_peds+1
-        ped = veh.state
-        if is_observable_fixed(ped, ego, pomdp.env)
-            o[2*veh.id - 1] = ped.posG.y + pos_noise*randn(rng)
-            o[2*veh.id] = ped.v + vel_noise*randn(rng)
+        for veh in sp
+            if veh.id == EGO_ID
+                continue
+            end
+            @assert veh.id <= pomdp.max_peds+1
+            ped = veh.state
+            if is_observable_fixed(ped, ego, pomdp.env)
+                o[2*veh.id - 1] = ped.posG.y + pos_noise*randn(rng)
+                o[2*veh.id] = ped.v + vel_noise*randn(rng)
+            end
         end
+        # rescale
+        o[1] /= pomdp.ego_goal
+        o[2] /= pomdp.env.params.speed_limit
+        for i=2:pomdp.max_peds+1
+            o[2*i - 1] /= pomdp.ped_goal
+            o[2*i] /= 2. # XXX parameterized
+        end
+        return o
     end
-    # rescale
-    o[1] /= pomdp.ego_goal
-    o[2] /= pomdp.env.params.speed_limit
-    for i=2:pomdp.max_peds+1
-        o[2*i - 1] /= pomdp.ped_goal
-        o[2*i] /= 2. # XXX parameterized
-    end
-    return o
 end
 
-function POMDPs.initialobs(pomdp::OCPOMDP, s::OCState, rng::AbstractRNG)
-    return gen(DDNNode(:o), pomdp, s, OCAction(0.), s, rng::AbstractRNG)
+function POMDPs.initialobs(pomdp::OCPOMDP, s::OCState)
+    return observation(pomdp, s, OCAction(0.), s)
 end
 
 # function POMDPs.convert_o(::Type{Vector{Float64}}, o::OCObs, pomdp::OCPOMDP)
@@ -221,15 +221,6 @@ end
 #     end
 #     return o
 # end
-
-### All together ##################################################################################
-
-function POMDPs.gen(::DDNOut{(:sp,:o,:r)}, pomdp::OCPOMDP, s::OCState, a::OCAction, rng::AbstractRNG)
-    sp = gen(DDNOut(:sp), pomdp, s, a, rng)
-    o = gen(DDNNode(:o), pomdp, s, a, sp, rng)
-    r = reward(pomdp, s, a, sp)
-    return sp, o, r
-end
 
 #### Helpers
 

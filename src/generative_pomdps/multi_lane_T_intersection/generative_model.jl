@@ -32,45 +32,47 @@ end
 
 ### TRANSITION MODEL ##############################################################################
 
-function POMDPs.transition(pomdp::OIPOMDP, s::OIState, a::OIAction, rng::AbstractRNG)
-    actions = Array{Any}(length(s))
-    pomdp.models[1].a = a
-    is_ego_here = clamp(findfirst(EGO_ID, s),0, 1)
-    sp = deepcopy(s) #XXX bad
-    max_id = 0
-    for veh in sp
-        if veh.id > max_id
-            max_id = veh.id
-        end
-    end
-    if rand(rng) < pomdp.p_birth && max_id < pomdp.max_cars +  is_ego_here
-        new_car = initial_car(pomdp, sp, rng)
-        if can_push(pomdp.env, sp, new_car)
-            lane = get_lane(pomdp.env.roadway, new_car)
-            route = random_route(rng, pomdp.env.roadway, lane)
-            intersection_entrances = get_start_lanes(pomdp.env.roadway)
-            if !(route[1] ∈ intersection_entrances)
-                intersection = Lane{Float64}[]
-                intersection_exits = Lane{Float64}[]
-            else
-                intersection_exits = get_exit_lanes(pomdp.env.roadway)
-                intersection=Lane{Float64}[route[1], route[2]]
+function POMDPs.transition(pomdp::OIPOMDP, s::OIState, a::OIAction)
+    ImplicitDistribution(s, a) do s, a, rng
+        actions = Array{Any}(length(s))
+        pomdp.models[1].a = a
+        is_ego_here = clamp(findfirst(EGO_ID, s),0, 1)
+        sp = deepcopy(s) #XXX bad
+        max_id = 0
+        for veh in sp
+            if veh.id > max_id
+                max_id = veh.id
             end
-            pomdp.models[new_car.id] = StopIntersectionDriver(navigator=RouteFollowingIDM(route=route),
-                                                       intersection=intersection,
-                                                       intersection_entrances = intersection_entrances,
-                                                       intersection_exits = intersection_exits,
-                                                       stop_delta=0.,
-                                                       accel_tol=0.,
-                                                       priorities = pomdp.env.priorities)
-            push!(sp, new_car)
         end
-        actions = Array{Any}(undef, length(sp))
+        if rand(rng) < pomdp.p_birth && max_id < pomdp.max_cars +  is_ego_here
+            new_car = initial_car(pomdp, sp, rng)
+            if can_push(pomdp.env, sp, new_car)
+                lane = get_lane(pomdp.env.roadway, new_car)
+                route = random_route(rng, pomdp.env.roadway, lane)
+                intersection_entrances = get_start_lanes(pomdp.env.roadway)
+                if !(route[1] ∈ intersection_entrances)
+                    intersection = Lane{Float64}[]
+                    intersection_exits = Lane{Float64}[]
+                else
+                    intersection_exits = get_exit_lanes(pomdp.env.roadway)
+                    intersection=Lane{Float64}[route[1], route[2]]
+                end
+                pomdp.models[new_car.id] = StopIntersectionDriver(navigator=RouteFollowingIDM(route=route),
+                                                        intersection=intersection,
+                                                        intersection_entrances = intersection_entrances,
+                                                        intersection_exits = intersection_exits,
+                                                        stop_delta=0.,
+                                                        accel_tol=0.,
+                                                        priorities = pomdp.env.priorities)
+                push!(sp, new_car)
+            end
+            actions = Array{Any}(undef, length(sp))
+        end
+        get_actions!(actions, sp, pomdp.env.roadway, pomdp.models)
+        tick!(sp, pomdp.env.roadway, actions, pomdp.ΔT)
+        clean_scene!(pomdp.env, sp)
+        return sp
     end
-    get_actions!(actions, sp, pomdp.env.roadway, pomdp.models)
-    tick!(sp, pomdp.env.roadway, actions, pomdp.ΔT)
-    clean_scene!(pomdp.env, sp)
-    return sp
 end
 
 
@@ -84,13 +86,16 @@ end
 
 ### INITIAL STATES ################################################################################
 
-function POMDPs.initialstate(pomdp::OIPOMDP, rng::AbstractRNG, burn_in::Int64=1)
-    scene = initial_scene(pomdp, rng)
-    # clean_scene!(pomdp.env, scene)
-    for t = 1:burn_in
-        scene = gen(DDNOut(:sp), pomdp, scene, OIAction(0.), rng)
+function POMDPs.initialstate(pomdp::OIPOMDP)
+    ImplicitDistribution() do rng
+        burn_in = 1 # this is now redundant
+        scene = initial_scene(pomdp, rng)
+        # clean_scene!(pomdp.env, scene)
+        for t = 1:burn_in
+            scene = @gen(:sp)(pomdp, scene, OIAction(0.), rng)
+        end
+        return scene
     end
-    return scene
 end
 
 function initial_scene(pomdp::OIPOMDP, rng::AbstractRNG, no_ego::Bool=false)
@@ -170,51 +175,49 @@ function initial_ego(pomdp::OIPOMDP, rng::AbstractRNG)
     return Vehicle(state, pomdp.ego_type, EGO_ID)
 end
 
-function POMDPs.initialstate_distribution(pomdp::OIPOMDP)
-    return GenerativeDist(pomdp)
-end
-
 
 
 ### Observations ##################################################################################
 
 # uncomment for vector representation
 # TODO find a better way to implement this to switch more easily between representations
-function POMDPs.observation(pomdp::OIPOMDP, s::Scene, a::OIAction, sp::Scene, rng::AbstractRNG)
-    n_features = 4
-    pos_noise = pomdp.pos_obs_noise
-    vel_noise = pomdp.vel_obs_noise
-    o = zeros(n_features*(pomdp.max_cars + 1))
-    ego = sp[findfirst(EGO_ID, sp)].state
-    o[1] = ego.posG.x
-    o[2] = ego.posG.y
-    o[3] = ego.posG.θ
-    o[4] = ego.v
-    car_off = get_off_the_grid(pomdp)
-    for i=2:pomdp.max_cars+1
-        o[n_features*i - 3] = car_off.posG.x
-        o[n_features*i - 2] = car_off.posG.y
-        o[n_features*i - 1] = car_off.posG.θ
-        o[n_features*i] = 0.
-    end
-    for veh in sp
-        if veh.id == EGO_ID
-            continue
+function POMDPs.observation(pomdp::OIPOMDP, s::Scene, a::OIAction, sp::Scene)
+    ImplicitDistribution(s, a, sp) do s, a, sp, rng
+        n_features = 4
+        pos_noise = pomdp.pos_obs_noise
+        vel_noise = pomdp.vel_obs_noise
+        o = zeros(n_features*(pomdp.max_cars + 1))
+        ego = sp[findfirst(EGO_ID, sp)].state
+        o[1] = ego.posG.x
+        o[2] = ego.posG.y
+        o[3] = ego.posG.θ
+        o[4] = ego.v
+        car_off = get_off_the_grid(pomdp)
+        for i=2:pomdp.max_cars+1
+            o[n_features*i - 3] = car_off.posG.x
+            o[n_features*i - 2] = car_off.posG.y
+            o[n_features*i - 1] = car_off.posG.θ
+            o[n_features*i] = 0.
         end
-        @assert veh.id <= pomdp.max_cars+1
-        car = veh.state
-        if is_observable_fixed(ego, car, pomdp.env)
-            o[n_features*veh.id - 3] = car.posG.x + pos_noise*randn(rng)
-            o[n_features*veh.id - 2] = car.posG.y + pos_noise*randn(rng)
-            o[n_features*veh.id - 1] = car.posG.θ
-            o[n_features*veh.id] = car.v + vel_noise*randn(rng)
+        for veh in sp
+            if veh.id == EGO_ID
+                continue
+            end
+            @assert veh.id <= pomdp.max_cars+1
+            car = veh.state
+            if is_observable_fixed(ego, car, pomdp.env)
+                o[n_features*veh.id - 3] = car.posG.x + pos_noise*randn(rng)
+                o[n_features*veh.id - 2] = car.posG.y + pos_noise*randn(rng)
+                o[n_features*veh.id - 1] = car.posG.θ
+                o[n_features*veh.id] = car.v + vel_noise*randn(rng)
+            end
         end
+        return o
     end
-    return o
 end
 
-function POMDPs.observation(pomdp::OIPOMDP, s::OIState, rng::AbstractRNG)
-    return observation(pomdp, s, OIAction(0.), s, rng::AbstractRNG)
+function POMDPs.initialobs(pomdp::OIPOMDP, s::OIState)
+    return observation(pomdp, s, OIAction(0.), s)
 end
 
 function POMDPs.convert_o(::Type{Vector{Float64}}, o::OIObs, pomdp::OIPOMDP)

@@ -1,6 +1,6 @@
 # function POMDPs.initialize_belief(pomdp::SingleOCPOMDP)
 #     b0 = DiscreteBelief(n_states(pomdp))
-#     d0 = initialstate_distribution(pomdp::SingleOCPOMDP)
+#     d0 = initialstate(pomdp::SingleOCPOMDP)
 #     for (i, s) in enumerate(iterator(states(pomdp)))
 #         b0.b[i] = pdf(d0, s)
 #     end
@@ -9,7 +9,7 @@
 # end
 
 #for sarsop for exploration
-# function POMDPs.initialstate_distribution(pomdp::SingleOCPOMDP)
+# function POMDPs.initialstate(pomdp::SingleOCPOMDP)
 #      state_space = states(pomdp)
 #      states_to_add = SingleOCState[]
 #      for s in state_space
@@ -22,23 +22,25 @@
 #      return SparseCat(states_to_add, probs)
 #  end
 
-"""
-Returns the initial state of the pomdp problem
-"""
-function POMDPs.initialstate(pomdp::SingleOCPOMDP, rng::AbstractRNG)
-    ped = rand(rng) > pomdp.no_ped_prob
-    if ped
-        pomdp.no_ped = false
-        d = initialstate_distribution(pomdp)
-        s = rand(rng, d)
-    else
-        # println("No pedestrians")
-        pomdp.no_ped = true
-        d = initial_distribution_no_ped(pomdp::SingleOCPOMDP)
-        s = rand(rng, d)
-    end
-    return s
-end
+# """
+# Returns the initial state of the pomdp problem
+# """
+# function POMDPs.initialstate(pomdp::SingleOCPOMDP)
+#     ImplicitDistribution() do rng
+#         ped = rand(rng) > pomdp.no_ped_prob
+#         if ped
+#             pomdp.no_ped = false
+#             d = initialstate(pomdp)
+#             s = rand(rng, d)
+#         else
+#             # println("No pedestrians")
+#             pomdp.no_ped = true
+#             d = initial_distribution_no_ped(pomdp::SingleOCPOMDP)
+#             s = rand(rng, d)
+#         end
+#         return s
+#     end
+# end
 
 """
 Returns the initial state distribution over the ego car state when there is no pedestrians
@@ -65,7 +67,7 @@ function initial_distribution_no_ped(pomdp::SingleOCPOMDP)
 end
 
 
-function POMDPs.initialstate_distribution(pomdp::SingleOCPOMDP)
+function POMDPs.initialstate(pomdp::SingleOCPOMDP)
     env = pomdp.env
     V_ego = LinRange(0., env.params.speed_limit, Int(floor(env.params.speed_limit/pomdp.vel_res)) + 1)
     rl = env.params.roadway_length
@@ -106,7 +108,7 @@ function POMDPs.initialstate_distribution(pomdp::SingleOCPOMDP)
     return SparseCat(states, probs)
 end
 
-function POMDPs.initialstate_distribution(pomdp::SingleOCPOMDP, ego::VehicleState)
+function POMDPs.initialstate(pomdp::SingleOCPOMDP, ego::VehicleState)
     env = pomdp.env
     rl = env.params.roadway_length
     cw = env.params.crosswalk_width

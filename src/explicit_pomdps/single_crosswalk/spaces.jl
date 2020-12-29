@@ -97,7 +97,11 @@ function POMDPs.obsindex(pomdp::SingleOCPOMDP, o::SingleOCObs)
     return stateindex(pomdp, o)
 end
 
-n_observations(pomdp::SingleOCPOMDP) = n_states(pomdp)
+function n_observations(pomdp::SingleOCPOMDP)
+    return n_states(pomdp)
+end
+
+
 
 #### ACTION SPACE
 function POMDPs.actions(pomdp::SingleOCPOMDP)

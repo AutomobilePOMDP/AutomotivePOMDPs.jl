@@ -117,7 +117,7 @@ function initial_scene(models::Dict{Int64, DriverModel}, env::CrosswalkEnv, conf
     n_ped = 0
     ego = models[1].ego.state
     pomdp = models[1].updater.problem
-    b0 = initialstate_distribution(pomdp, ego)
+    b0 = initialstate(pomdp, ego)
     for i = 1:n_ped
         ped_state = rand(config.rng, b0).ped
         d_lat = Distributions.Uniform(env.params.roadway_length - env.params.crosswalk_width + 2, env.params.roadway_length + env.params.crosswalk_width-1)

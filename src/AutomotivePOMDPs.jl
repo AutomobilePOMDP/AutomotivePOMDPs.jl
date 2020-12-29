@@ -7,10 +7,10 @@ using POMDPModelTools
 using POMDPSimulators
 using POMDPPolicies
 using BeliefUpdaters
+using RLInterface
 using Parameters
 using GridInterpolations
 using StaticArrays
-using RLInterface
 using DiscreteValueIteration
 using AutomotiveDrivingModels
 using AutoUrban
@@ -23,7 +23,7 @@ using LinearAlgebra
 import Cairo
 
 """
-Abstract type to define driving environment with occlusion
+Abstract type to define driving environment with occlusion 
 """
 abstract type OccludedEnv end
 
@@ -193,7 +193,7 @@ include("generative_pomdps/urban/pomdp_types.jl")
 include("generative_pomdps/urban/generative_model.jl")
 include("generative_pomdps/urban/render_helpers.jl")
 
-export
+export 
     CarMDP,
     CarMDPState,
     CarMDPAction,

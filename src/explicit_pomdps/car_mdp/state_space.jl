@@ -69,7 +69,7 @@ function POMDPs.stateindex(mdp::CarMDP, s::CarMDPState)
     return si
 end
 
-function POMDPs.initialstate_distribution(mdp::CarMDP)
+function POMDPs.initialstate(mdp::CarMDP)
     ego = initial_ego_state(mdp)
     init_car_states, init_car_routes = initial_car_state_distribution(mdp)
     init_states = Vector{CarMDPState}(length(init_car_states))
@@ -111,15 +111,6 @@ end
 function initial_car_state(mdp::CarMDP, rng::AbstractRNG)
     init_car_states, init_car_routes = initial_car_state_distribution(mdp)
     return rand(rng, init_car_states), rand(rng, init_car_routes)
-end
-
-function POMDPs.initialstate(mdp::CarMDP, rng::AbstractRNG)
-    # routes = get_car_routes(mdp.env)
-    # route = rand(rng, routes)
-    # car = rand(rng, get_car_states(mdp.env, route, mdp.pos_res, mdp.vel_res))
-    # ego = initial_ego_state(mdp)
-    # crash =  is_colliding(Vehicle(ego, mdp.ego_type, 1), Vehicle(car, mdp.car_type, 2))
-    return rand(rng, initialstate_distribution(mdp))
 end
 
 function car_starting_states(mdp::CarMDP, min_speed::Float64 = 6.0)

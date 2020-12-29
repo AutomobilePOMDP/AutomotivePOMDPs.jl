@@ -38,7 +38,7 @@ function POMDPs.stateindex(mdp::PedMDP, s::PedMDPState)
     si = LinearIndices((n_ped+1, n_ego))[ped_i, ego_i]
 end
 
-function POMDPs.initialstate_distribution(mdp::PedMDP)
+function POMDPs.initialstate(mdp::PedMDP)
     ego = initial_ego_state(mdp)
     init_ped_dist = initial_ped_state_distribution(mdp)
     init_ped_states = init_ped_dist.vals
@@ -70,10 +70,6 @@ end
 function initial_ped_state(mdp::PedMDP, rng::AbstractRNG)
     init_dist = initial_ped_state_distribution(mdp)
     return rand(rng, init_dist)
-end
-
-function POMDPs.initialstate(mdp::PedMDP, rng::AbstractRNG)
-    return rand(rng, initialstate_distribution(mdp))
 end
 
 function pedestrian_starting_states(mdp::PedMDP)

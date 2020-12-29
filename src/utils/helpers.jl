@@ -10,14 +10,6 @@ end
 Base.rand(model::EgoDriver) = model.a
 AutomotiveDrivingModels.observe!(m::EgoDriver, s::EntityFrame{S,D,I}, roadway::R, egoid::Int64) where {S,D,I,R} = m
 
-mutable struct GenerativeDist
-    problem::POMDP
-end
-
-function Base.rand(rng::AbstractRNG, d::GenerativeDist)
-    return initialstate(d.problem, rng)
-end
-
 """
     is_crash(scene::Scene)
 return true if the ego car is in collision in the given scene, do not check for collisions between

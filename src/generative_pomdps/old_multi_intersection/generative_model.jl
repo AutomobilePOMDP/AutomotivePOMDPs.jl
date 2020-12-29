@@ -30,30 +30,32 @@ end
 
 ### TRANSITION MODEL ##############################################################################
 
-function POMDPs.gen(::DDNNode{:s}, pomdp::OIPOMDP, s::OIState, a::OIAction, rng::AbstractRNG)
-    actions = Array{Any}(length(s))
-    pomdp.models[1].a = a
-    sp = deepcopy(s) #XXX bad
-    max_id = 0
-    for veh in sp
-        if veh.id > max_id
-            max_id = veh.id
+function POMDPs.transition(pomdp::OIPOMDP, s::OIState, a::OIAction)
+    ImplicitDistribution(s, a) do s, a, rng
+        actions = Array{Any}(length(s))
+        pomdp.models[1].a = a
+        sp = deepcopy(s) #XXX bad
+        max_id = 0
+        for veh in sp
+            if veh.id > max_id
+                max_id = veh.id
+            end
         end
-    end
-    if rand(rng) < pomdp.p_birth && max_id < 9
-        new_car = initial_car(pomdp, sp, rng)
-        if !isnan(new_car.state.v)
-            pomdp.models[new_car.id] = IntelligentDriverModel2D(lane = get_lane(pomdp.env.roadway, new_car))
-            push!(sp, new_car)
-            actions = Array{Any}(length(sp))
+        if rand(rng) < pomdp.p_birth && max_id < 9
+            new_car = initial_car(pomdp, sp, rng)
+            if !isnan(new_car.state.v)
+                pomdp.models[new_car.id] = IntelligentDriverModel2D(lane = get_lane(pomdp.env.roadway, new_car))
+                push!(sp, new_car)
+                actions = Array{Any}(length(sp))
+            end
+            # push!(sp, new_car)
+            # actions = Array{Any}(length(sp))
         end
-        # push!(sp, new_car)
-        # actions = Array{Any}(length(sp))
+        get_actions!(actions, sp, pomdp.env.roadway, pomdp.models)
+        tick!(sp, pomdp.env.roadway, actions, pomdp.ΔT)
+        clean_scene!(pomdp.env, sp)
+        return sp
     end
-    get_actions!(actions, sp, pomdp.env.roadway, pomdp.models)
-    tick!(sp, pomdp.env.roadway, actions, pomdp.ΔT)
-    clean_scene!(pomdp.env, sp)
-    return sp
 end
 
 
@@ -107,21 +109,22 @@ end
 
 ### INITIAL STATES ################################################################################
 
-function POMDPs.initialstate(pomdp::OIPOMDP, rng::AbstractRNG)
-
-    scene = Scene()
-    ego = initial_ego(pomdp, rng)
-    push!(scene, ego)
-    for i=1:pomdp.max_cars
-        if rand(rng) < pomdp.p_birth
-            new_car = initial_car(pomdp, scene, rng, true)
-            push!(scene, new_car)
-            pomdp.models[new_car.id] = IntelligentDriverModel2D(lane = get_lane(pomdp.env.roadway, new_car))
-            clean_scene!(pomdp.env, scene)
+function POMDPs.initialstate(pomdp::OIPOMDP)
+    ImplicitDistribution() do rng
+        scene = Scene()
+        ego = initial_ego(pomdp, rng)
+        push!(scene, ego)
+        for i=1:pomdp.max_cars
+            if rand(rng) < pomdp.p_birth
+                new_car = initial_car(pomdp, scene, rng, true)
+                push!(scene, new_car)
+                pomdp.models[new_car.id] = IntelligentDriverModel2D(lane = get_lane(pomdp.env.roadway, new_car))
+                clean_scene!(pomdp.env, scene)
+            end
         end
-    end
 
-    return scene
+        return scene
+    end
 end
 
 function initial_car(pomdp::OIPOMDP, scene::Scene, rng::AbstractRNG, first_scene::Bool = false)
@@ -181,10 +184,6 @@ mutable struct GenerativeDist
     problem::OIPOMDP
 end
 
-function POMDPs.initialstate_distribution(pomdp::OIPOMDP)
-    return GenerativeDist(pomdp)
-end
-
 function Base.rand(rng::AbstractRNG, d::GenerativeDist)
     return initialstate(d.problem, rng)
 end
@@ -195,41 +194,43 @@ end
 
 # uncomment for vector representation
 # TODO find a better way to implement this to switch more easily between representations
-function POMDPs.gen(::DDNNode{:o}, pomdp::OIPOMDP, s::Scene, a::OIAction, sp::Scene, rng::AbstractRNG)
-    n_features = 4
-    pos_noise = pomdp.pos_obs_noise
-    vel_noise = pomdp.vel_obs_noise
-    o = zeros(n_features*(pomdp.max_cars + 1))
-    ego = sp[findfirst(EGO_ID, sp)].state
-    o[1] = ego.posG.x
-    o[2] = ego.posG.y
-    o[3] = ego.posG.θ
-    o[4] = ego.v
-    car_off = get_off_the_grid(pomdp)
-    for i=2:pomdp.max_cars+1
-        o[n_features*i - 3] = car_off.posG.x
-        o[n_features*i - 2] = car_off.posG.y
-        o[n_features*i - 1] = car_off.posG.θ
-        o[n_features*i] = 0.
-    end
-    for veh in sp
-        if veh.id == EGO_ID
-            continue
+function POMDPs.observation(pomdp::OIPOMDP, s::Scene, a::OIAction, sp::Scene)
+    ImplicitDistribution(s, a, sp) do s, a, sp, rng
+        n_features = 4
+        pos_noise = pomdp.pos_obs_noise
+        vel_noise = pomdp.vel_obs_noise
+        o = zeros(n_features*(pomdp.max_cars + 1))
+        ego = sp[findfirst(EGO_ID, sp)].state
+        o[1] = ego.posG.x
+        o[2] = ego.posG.y
+        o[3] = ego.posG.θ
+        o[4] = ego.v
+        car_off = get_off_the_grid(pomdp)
+        for i=2:pomdp.max_cars+1
+            o[n_features*i - 3] = car_off.posG.x
+            o[n_features*i - 2] = car_off.posG.y
+            o[n_features*i - 1] = car_off.posG.θ
+            o[n_features*i] = 0.
         end
-        @assert veh.id <= pomdp.max_cars+1
-        car = veh.state
-        if is_observable_fixed(ego, car, pomdp.env)
-            o[n_features*veh.id - 3] = car.posG.x + pos_noise*randn(rng)
-            o[n_features*veh.id - 2] = car.posG.y + pos_noise*randn(rng)
-            o[n_features*veh.id - 1] = car.posG.θ
-            o[n_features*veh.id] = car.v + vel_noise*randn(rng)
+        for veh in sp
+            if veh.id == EGO_ID
+                continue
+            end
+            @assert veh.id <= pomdp.max_cars+1
+            car = veh.state
+            if is_observable_fixed(ego, car, pomdp.env)
+                o[n_features*veh.id - 3] = car.posG.x + pos_noise*randn(rng)
+                o[n_features*veh.id - 2] = car.posG.y + pos_noise*randn(rng)
+                o[n_features*veh.id - 1] = car.posG.θ
+                o[n_features*veh.id] = car.v + vel_noise*randn(rng)
+            end
         end
+        return o
     end
-    return o
 end
 
-function POMDPs.gen(::DDNNode{:o}, pomdp::OIPOMDP, s::OIState, rng::AbstractRNG)
-    return gen(DDNNode(:o), pomdp, s, OIAction(0.), s, rng::AbstractRNG)
+function POMDPs.initialobs(pomdp::OIPOMDP, s::OIState)
+    return observation(pomdp, s, OIAction(0.), s)
 end
 
 function POMDPs.convert_o(::Type{Vector{Float64}}, o::OIObs, pomdp::OIPOMDP)

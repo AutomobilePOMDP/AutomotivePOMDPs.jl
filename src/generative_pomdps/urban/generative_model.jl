@@ -33,7 +33,7 @@ end
 
 function POMDPs.transition(pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction)
     ImplicitDistribution(s, a) do s, a, rng
-        # clean dict
+        # clean dict 
         ids = [veh.id for veh in s]
         key_ = deepcopy(keys(pomdp.models))
         for k in key_
@@ -46,6 +46,8 @@ function POMDPs.transition(pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction)
         ego_ind = findfirst(EGO_ID, s)
         is_ego_here =  ego_ind == nothing ? 0 : 1
         sp = deepcopy(s) #XXX bad
+        @show length(keys(pomdp.models))
+        @show length(sp)
         if rand(rng) < pomdp.car_birth && n_cars(s) < pomdp.max_cars + is_ego_here
             new_car = initial_car(pomdp, sp, rng)
             if can_push(pomdp.env, sp, new_car)
@@ -74,50 +76,9 @@ function POMDPs.transition(pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction)
     end
 end
 
-function POMDPs.transition(pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction, rng::AbstractRNG)
-    # clean dict
-    ids = [veh.id for veh in s]
-    key_ = deepcopy(keys(pomdp.models))
-    for k in key_
-        if !(k ∈ ids) && k!=1
-            delete!(pomdp.models, k)
-        end
-    end
-    actions = Array{Any}(undef, length(s))
-    pomdp.models[1].a = a
-    ego_ind = findfirst(EGO_ID, s)
-    is_ego_here =  ego_ind == nothing ? 0 : 1
-    sp = deepcopy(s) #XXX bad
-    if rand(rng) < pomdp.car_birth && n_cars(s) < pomdp.max_cars + is_ego_here
-        new_car = initial_car(pomdp, sp, rng)
-        if can_push(pomdp.env, sp, new_car)
-            lane = get_lane(pomdp.env.roadway, new_car)
-            route = find_route(pomdp.env, random_route(rng, pomdp.env.roadway, lane))
-            pomdp.models[new_car.id] = pomdp.car_models[SVector(route[1], route[end])]
-            reset_hidden_state!(pomdp.models[new_car.id])
-            push!(sp, new_car)
-        end
-    end
-    if rand(rng) < pomdp.ped_birth && n_pedestrians(s) < pomdp.max_peds
-        # println("Spawning new pedestrians")
-        new_ped = initial_pedestrian(pomdp, sp, rng)
-        # pomdp.models[new_ped.id] = ConstantPedestrian(dt = pomdp.ΔT)#TODO parameterized
-        new_ped_cw = get_lane(pomdp.env.roadway, new_ped)
-        new_ped_conflict_lanes = get_conflict_lanes(new_ped_cw, pomdp.env.roadway)
-        pomdp.models[new_ped.id] = IntelligentPedestrian(dt = pomdp.ΔT, crosswalk=new_ped_cw, conflict_lanes=new_ped_conflict_lanes)
-        reset_hidden_state!(pomdp.models[new_ped.id])
-        push!(sp, new_ped)
-    end
-    actions = Array{Any}(undef, length(sp))
-    get_actions!(actions, sp, pomdp.env.roadway, pomdp.models)
-    tick!(sp, pomdp.env.roadway, actions, pomdp.ΔT)
-    clean_scene!(pomdp.env, sp)
-    return sp
-end
-
-function POMDPModelTools.gen(::DDNOut{(:sp, :o, :r, :info)}, p::UrbanPOMDP, s, a, rng::AbstractRNG)
-    return gen(DDNOut(:sp, :o, :r), p, s, a, rng)..., deepcopy(p.models)
-end
+# function POMDPModelTools.gen(::DDNOut{(:sp, :o, :r, :info)}, p::UrbanPOMDP, s, a, rng::AbstractRNG)
+#     return gen(DDNOut(:sp, :o, :r), p, s, a, rng)..., deepcopy(p.models)
+# end
 
 #TODO move to helpers
 
@@ -129,17 +90,20 @@ end
 
 ### INITIAL STATES ################################################################################
 
-function POMDPs.initialstate(pomdp::UrbanPOMDP, rng::AbstractRNG, burn_in::Int64=1)
-    scene = initial_scene(pomdp, rng, true)
-    for t = 1:burn_in
-        scene = transition(pomdp, scene, UrbanAction(0.), rng)
+function POMDPs.initialstate(pomdp::UrbanPOMDP)
+    ImplicitDistribution() do rng
+        burn_in = 1 # this is now redundant
+        scene = initial_scene(pomdp, rng, true)
+        for t = 1:burn_in
+            scene = @gen(:sp)(pomdp, scene, UrbanAction(0.), rng)
+        end
+        clean_scene!(pomdp.env, scene)
+        # push! ego after traffic is steady
+        ego = initial_ego(pomdp, rng)
+        push!(scene, ego)
+        clean_scene!(pomdp.env, scene)
+        return scene
     end
-    clean_scene!(pomdp.env, scene)
-    # push! ego after traffic is steady
-    ego = initial_ego(pomdp, rng)
-    push!(scene, ego)
-    clean_scene!(pomdp.env, scene)
-    return scene
 end
 
 
@@ -250,27 +214,23 @@ function initial_pedestrian(pomdp::UrbanPOMDP, scene::Scene, rng::AbstractRNG, f
     return Vehicle(ped_initialstate, pomdp.ped_type, id)
 end
 
-function POMDPs.initialstate_distribution(pomdp::UrbanPOMDP)
-    return GenerativeDist(pomdp)
-end
-
 
 
 ### Observations ##################################################################################
 
-function POMDPs.observation(pomdp::UrbanPOMDP, sp::UrbanState)
+function POMDPs.observation(pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction, sp::UrbanState)
     if pomdp.lidar
-        return measure_lidar(pomdp, sp)
+        Deterministic(measure_lidar(pomdp, s, a, sp))
     else
-        return measure_gaussian(pomdp, sp)
+        Deterministic(measure_gaussian(pomdp, s, a, sp))
     end
 end
 
-function measure_gaussian(pomdp::UrbanPOMDP, sp::UrbanState)
+function measure_gaussian(pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction, sp::UrbanState)
     ego = get_ego(sp)
     obs = measure(pomdp.sensor, ego, sp, pomdp.env.roadway, pomdp.env.obstacles)
     o = obs_to_array(pomdp, ego, obs)
-    return o
+    return o 
 end
 
 function obs_to_array(pomdp::UrbanPOMDP, ego_veh::Vehicle, obs::Vector{Vehicle})
@@ -299,12 +259,12 @@ function obs_to_array(pomdp::UrbanPOMDP, ego_veh::Vehicle, obs::Vector{Vehicle})
             o[n_features*veh.id - 3] = veh.state.posG.x - ego.posG.x
             o[n_features*veh.id - 2] = veh.state.posG.y - ego.posG.y
             o[n_features*veh.id - 1] = veh.state.posG.θ
-            o[n_features*veh.id] = veh.state.v
+            o[n_features*veh.id] = veh.state.v 
         end
         if veh.def.class == AgentClass.PEDESTRIAN
             o[n_features*(veh.id - 100 + pomdp.max_cars + 1) - 3] = veh.state.posG.x - ego.posG.x
             o[n_features*(veh.id - 100 + pomdp.max_cars + 1) - 2] = veh.state.posG.y - ego.posG.y
-            o[n_features*(veh.id - 100 + pomdp.max_cars + 1) - 1] = veh.state.posG.θ
+            o[n_features*(veh.id - 100 + pomdp.max_cars + 1) - 1] = veh.state.posG.θ 
             o[n_features*(veh.id - 100 + pomdp.max_cars + 1)] = veh.state.v
         end
     end
@@ -330,8 +290,8 @@ function n_dims(pomdp::UrbanPOMDP)
     return n_features*(pomdp.max_cars + pomdp.max_peds + n_obstacles + 1)
 end
 
-function POMDPs.initialobs(pomdp::UrbanPOMDP, s::UrbanState, rng::AbstractRNG)
-    return observation(pomdp, s, UrbanAction(0.), s, rng::AbstractRNG)
+function POMDPs.initialobs(pomdp::UrbanPOMDP, s::UrbanState)
+    return observation(pomdp, s, UrbanAction(0.), s)
 end
 
 function rescale!(o::UrbanObs, pomdp::UrbanPOMDP)
@@ -393,7 +353,7 @@ function to_global_coordinates!(o::UrbanObs, pomdp::UrbanPOMDP)
         o[n_features*i - 2] += ego[2]
     end
     for i=pomdp.max_cars + pomdp.max_peds + 2:pomdp.max_cars + pomdp.max_peds + 1 + n_obstacles
-        o[n_features*i - 1] += ego[1]
+        o[n_features*i - 1] += ego[1] 
         o[n_features*i]+= ego[2]
     end
     return o
@@ -410,7 +370,7 @@ function get_normalized_absent_state(pomdp::UrbanPOMDP, ego::Vector{Float64})
                     0. ]
 end
 
-function measure_lidar(pomdp::UrbanPOMDP, sp::UrbanState)
+function measure_lidar(pomdp::UrbanPOMDP, s::UrbanState, a::UrbanAction, sp::UrbanState)
     observe!(pomdp.sensor, sp, pomdp.env.roadway, EGO_ID)
     return vcat(pomdp.sensor.ranges/pomdp.sensor.max_range, pomdp.sensor.range_rates/pomdp.env.params.speed_limit)
 end
@@ -419,13 +379,13 @@ function POMDPs.convert_o(::Type{Vector{Float64}}, o::UrbanObs, pomdp::UrbanPOMD
     return o
 end
 
-function POMDPs.gen(::DDNOut{(:sp, :o, :r, :info)}, p::UrbanPOMDP, s::UrbanState, a::UrbanAction, rng::AbstractRNG)
-    if p.lidar
-        return gen(DDNOut(:sp,:o,:r), p, s, a, rng)..., p.sensor
-    else
-        return gen(DDNOut(:sp,:o,:r), p, s, a, rng)..., nothing
-    end
-end
+# function POMDPs.gen(::DDNOut{(:sp, :o, :r, :info)}, p::UrbanPOMDP, s::UrbanState, a::UrbanAction, rng::AbstractRNG)
+#     if p.lidar
+#         return gen(DDNOut(:sp,:o,:r), p, s, a, rng)..., p.sensor
+#     else
+#         return gen(DDNOut(:sp,:o,:r), p, s, a, rng)..., nothing
+#     end
+# end
 
 # uncomment for Lidar
 # uncomment for LIDAR observation
@@ -624,7 +584,7 @@ function split_o(obs::UrbanObs, pomdp::UrbanPOMDP, normalized=true)
     ego = obs[1:n_features]
     if normalized
         absent = normalized_off_the_grid_pos(pomdp, ego[1], ego[2])
-    else
+    else 
         pos_off = get_off_the_grid(pomdp)
         absent= [pos_off.posG.x, pos_off.posG.y, pos_off.posG.θ, pos_off.v]
     end

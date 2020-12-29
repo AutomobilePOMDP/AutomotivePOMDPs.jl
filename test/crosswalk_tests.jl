@@ -12,7 +12,6 @@ using POMDPTesting
     pomdp = SingleOCPOMDP(env = env,
                         collision_cost=-1.5)
     trans_prob_consistency_check(pomdp)
-
     obs_prob_consistency_check(pomdp)
 end
 
@@ -28,10 +27,10 @@ end
     policy = RandomPolicy(pomdp, rng=rng)
 
     hr = HistoryRecorder(rng=rng, max_steps = 100)
-    s0 = initialstate(pomdp, rng)
-    initial_observation = initialobs(pomdp, s0, rng)
+    s0 = rand(rng, initialstate(pomdp))
+    initial_observation = rand(rng, initialobs(pomdp, s0))
     initial_obs_vec = fill(initial_observation, 4)
-    hist = simulate(hr, pomdp, policy, up, initial_obs_vec, s0)
+    hist = POMDPs.simulate(hr, pomdp, policy, up, initial_obs_vec, s0)
 
     @test n_steps(hist) > 1
 end

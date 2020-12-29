@@ -9,7 +9,7 @@ using POMDPModels
 pomdp = TigerPOMDP()
 
 spomdp = SparseTabularPOMDP(pomdp)
-b0 = POMDPPolicies.beliefvec(pomdp, length(states(pomdp)), initialstate_distribution(pomdp))
+b0 = POMDPPolicies.beliefvec(pomdp, n_states(pomdp), initialstate(pomdp))
 solver = HSVISolver(Vector(b0), 1e-3, 1e-3, SawtoothProjection())
 
 policy = solve(solver, spomdp)
