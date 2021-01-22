@@ -172,17 +172,17 @@ function POMDPs.update(bu::SingleOCUpdater, bold::SparseCat, a::SingleOCAction, 
             b_sum += pp * bold.probs[j]
         end
         if b_sum != 0.
-            push!(bnew.it, sp)
-            push!(bnew.p, probo*b_sum)
+            push!(bnew.vals, sp)
+            push!(bnew.probs, probo*b_sum)
         end
     end
 
     # if norm is zero, the update was invalid - reset to uniform
-    if sum(bnew.p) == 0.0
+    if sum(bnew.probs) == 0.0
         println("Invalid update for: ", bold, " ", a, " ", o)
         throw("UpdateError")
     else
-        normalize!(bnew.p, 1)
+        normalize!(bnew.probs, 1)
     end
     bnew
 end

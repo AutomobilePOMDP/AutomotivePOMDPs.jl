@@ -4,7 +4,7 @@ Representation of a state for the SingleOCcludedCrosswalk POMDP,
 depends on ADM VehicleState type
 """
 mutable struct SingleOCState
-    crash ::Bool
+    crash::Bool
     ego::VehicleState
     ped::VehicleState
 end
@@ -27,7 +27,7 @@ function Base.:(==)(a::SingleOCState, b::SingleOCState)
 end
 
 function Base.isapprox(veh1::VehicleState, veh2::VehicleState; kwargs...)
-    isapprox(veh1.posG, veh2.posG, kwargs...) && isapprox(veh1.posG, veh2.posG, kwargs...) && isapprox(veh1.v, veh2.v, kwargs...) 
+    isapprox(veh1.posG, veh2.posG, kwargs...) && isapprox(veh1.posG, veh2.posG, kwargs...) && isapprox(veh1.v, veh2.v, kwargs...)
 end
 
 #### Observaton type
@@ -96,10 +96,10 @@ function SingleOCPOMDP(; env::CrosswalkEnv = CrosswalkEnv(),
                    v_noise::Float64 = 1.,
                    pos_obs_noise::Float64 = 1.0,
                    vel_obs_noise::Float64 = 1.0,
-                   collision_cost::Float64 = -1.,
-                   action_cost::Float64 = 0.0,
-                   goal_reward::Float64 = 1.,
-                   γ::Float64  = 0.9)
+                   collision_cost::Float64 = -10.,
+                   action_cost::Float64 = -0.2,
+                   goal_reward::Float64 = 5.,
+                   γ::Float64  = 0.95)
     return SingleOCPOMDP(env,
                    ego_type,
                    ped_type,
@@ -128,7 +128,7 @@ end
 # function POMDPs.reward(pomdp::SingleOCPOMDP, s::SingleOCState, a::SingleOCAction, sp::SingleOCState)
 #     r = 0.
 #     if sp == TERMINAL_STATE
-#         return r 
+#         return r
 #     end
 #     if sp.crash
 #         r += pomdp.collision_cost
@@ -151,8 +151,8 @@ function POMDPs.reward(pomdp::SingleOCPOMDP, s::SingleOCState, a::SingleOCAction
     end
     if s.ego.posG.x >= pomdp.x_goal
         r += pomdp.goal_reward
-    elseif a.acc > 0.
-        r += pomdp.action_cost
+    elseif a.acc > 0.5
+        r += pomdp.action_cost / (0.75 + 0.5 * a.acc)
     else
         r += pomdp.action_cost
     end

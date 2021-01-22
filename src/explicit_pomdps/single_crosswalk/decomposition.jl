@@ -82,8 +82,9 @@ end
 
 function POMDPs.action(policy::AlphaVectorPolicy, b::SparseCat)
     alphas = policy.alphas' #size |A|x|S|
-    util = zeros(n_actions(policy.pomdp)) # size |A|
-    for i=1:n_actions(policy.pomdp)
+    pomdp = policy.pomdp
+    util = zeros(length(actions(pomdp))) # size |A|
+    for i=1:length(actions(pomdp))
         res = 0.0
         for (j,s) in enumerate(b.vals)
             si = stateindex(policy.pomdp, s)
@@ -133,7 +134,8 @@ end
 Fuse the value of different belief by summing them
 """
 function fuse_value(policy::Policy, b::Dict{Int64,B}) where B
-    val = zeros(n_actions(policy.pomdp))
+    pomdp = policy.pomdp
+    val = zeros(length(actions(pomdp)))
     for id in keys(b)
         val_inc = value(policy, b[id])
         val += val_inc
@@ -147,8 +149,9 @@ end
 Fuse the value of different belief by taking the min of the two for each action
 """
 function fuse_value_min(policy::Policy, b::Dict{Int64, B}) where B
-    val = zeros(n_actions(policy.pomdp))
-    for i=1:n_actions(policy.pomdp)
+    pomdp = policy.pomdp
+    val = zeros(length(actions(pomdp)))
+    for i=1:length(actions(pomdp))
         min_val = +Inf
         for id in keys(b)
             v_id = value(policy, b[id])
