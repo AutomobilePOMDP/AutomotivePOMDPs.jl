@@ -41,8 +41,40 @@ This package exports the following POMDP Models:
 These models are defined according to the [POMDPs.jl]() interface. To see how they are parameterized, toggle the documentation using `?` or
 use the function `fieldnames` if documentation is not yet written.
 
-Video of the `UrbanPOMDP` scenario:
-![avatar](./urbanpomdp.gif)
+Currently, only the `SingleOCPOMDP` environment can be solved using online and offline methods, examples are as follows:
+```julia
+using POMDPs
+using AutomotivePOMDPs
+using POMDPPolicies
+using POMDPSimulators
+using BeliefUpdaters
+using ParticleFilters
+using AutomotiveDrivingModels
+using AutomotiveSensors
+using AutoViz
+using Reel
+using QMDP
+using ARDESPOT
+
+pomdp = SingleOCPOMDP(ΔT=0.5, max_acc=1.5, p_birth=1.0, action_cost=-0.2, γ=0.99)
+
+qmdp_policy = solve(QMDPSolver(max_iterations=1000), pomdp)
+
+function qmdp_upper_bound(pomdp, b)
+    return value(qmdp_policy, b)
+end
+
+solver = DESPOTSolver(lambda=0., K=100, bounds=IndependentBounds(DefaultPolicyLB(RandomSolver()), qmdp_upper_bound, check_terminal=true),
+default_action=SingleOCAction(-2.0), bounds_warnings=false)
+planner = solve(solver, pomdp)
+
+up = SingleOCUpdater(pomdp);
+
+hr = RolloutSimulator(rng=rng, max_steps=50)
+
+@show qmdp_reward = POMDPs.simulate(hr, pomdp, qmdp_policy, up);
+@show despot_reward = POMDPs.simulate(hr, pomdp, planner, up);
+```
 
 ## Dependencies
 
