@@ -4,10 +4,10 @@
 [![Coverage Status](https://coveralls.io/repos/github/sisl/AutomotivePOMDPs.jl/badge.svg?branch=master)](https://coveralls.io/github/sisl/AutomotivePOMDPs.jl?branch=master)
 [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://sisl.github.io/AutomotivePOMDPs.jl/latest)
 
-contact: Maxime Bouton, [boutonm@stanford.edu](boutonm@stanford.edu)
+Original author: Maxime Bouton, [boutonm@stanford.edu](boutonm@stanford.edu)
 
-This repository consists of different driving scenarios formulated as POMDPs. It provides a generative model for computing policies. A few of them have explicit transition and observation models.
-
+This repository consists of different driving scenarios formulated as POMDPs. It provides a generative model for computing policies. A few of them have explicit transition and observation models. This library is based on "POMDPs" v0.9 instead of "POMDP" v0.8 in original library.
+ 
 ## Installation
 
 To install this package, first add the SISL registry and the JuliaPOMDP registry such that all dependencies are automatically installed. 
@@ -42,7 +42,7 @@ These models are defined according to the [POMDPs.jl]() interface. To see how th
 use the function `fieldnames` if documentation is not yet written.
 
 Video of the `UrbanPOMDP` scenario:
-![urban_lidar](urbanpomdp.gif)
+!(urbanpomdp.gif)
 
 ## Dependencies
 
