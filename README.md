@@ -42,7 +42,7 @@ These models are defined according to the [POMDPs.jl]() interface. To see how th
 use the function `fieldnames` if documentation is not yet written.
 
 Video of the `UrbanPOMDP` scenario:
-![](urbanpomdp.gif)
+![avatar](urbanpomdp.gif)
 
 ## Dependencies
 
